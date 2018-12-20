@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+
+<html xmlns:th="http://www.thymeleaf.org"
+  th:replace="~{fragments/layout :: layout (~{::body},'issues')}">
+
+  <body>
+
+    <h2>Issues</h2>
+
+    <table id="issues" class="table table-striped">
+        <thead>
+        <tr>
+            <th>id</th>
+            <th>Title</th>
+        </tr>
+        </thead>
+        <tbody>
+          <tr th:each="issue : ${issues}">
+              <td>
+                  <a th:href="@{/issues/__${issue.id}__}" th:text="${issue.id}"/></a>
+              </td>
+              <td>
+                  <a th:href="@{/issues/__${issue.id}__}" th:text="${issue.title}"/></a>
+              </td>
+          </tr>
+        </tbody>
+    </table>
+
+  </body>
+</html>

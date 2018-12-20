@@ -16,24 +16,20 @@
 
 package org.springframework.samples.petclinic;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.samples.petclinic.vet.VetRepository;
-import org.springframework.test.context.junit4.SpringRunner;
+/**
+ * PetClinic Spring Boot Application.
+ *
+ * @author Dave Syer
+ *
+ */
+@SpringBootApplication
+public class Application {
 
-@RunWith(SpringRunner.class)
-@SpringBootTest
-public class PetclinicIntegrationTests {
-
-    @Autowired
-    private VetRepository vets;
-
-    @Test
-    public void testFindAll() throws Exception {
-        vets.findAll();
-        vets.findAll(); // served from cache
+    public static void main(String[] args) {
+        SpringApplication.run(Application.class, args);
     }
+
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2013 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,68 +13,54 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.springframework.samples.petclinic.visit;
-
-import java.time.LocalDate;
+package org.springframework.samples.petclinic.issue;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Table;
 import javax.validation.constraints.NotEmpty;
 
-import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.core.style.ToStringCreator;
 import org.springframework.samples.petclinic.model.BaseEntity;
 
 /**
- * Simple JavaBean domain object representing a visit.
+ * Simple JavaBean domain object representing an issue.
  *
- * @author Ken Krebs
- * @author Dave Syer
  */
 @Entity
-@Table(name = "visits")
-public class Visit extends BaseEntity {
+@Table(name = "issues")
+public class Issue extends BaseEntity {
 
-    @Column(name = "visit_date")
-    @DateTimeFormat(pattern = "yyyy-MM-dd")
-    private LocalDate date;
-
+    @Column(name = "title")
     @NotEmpty
+    private String title;
+
     @Column(name = "description")
     private String description;
-
-    @Column(name = "pet_id")
-    private Integer petId;
-
-    /**
-     * Creates a new instance of Visit for the current date
-     */
-    public Visit() {
-        this.date = LocalDate.now();
+    public String getTitle() {
+        return title;
     }
 
-    public LocalDate getDate() {
-        return this.date;
-    }
-
-    public void setDate(LocalDate date) {
-        this.date = date;
+    public void setTitle(String title) {
+        this.title = title;
     }
 
     public String getDescription() {
-        return this.description;
+        return description;
     }
 
     public void setDescription(String description) {
         this.description = description;
     }
 
-    public Integer getPetId() {
-        return this.petId;
-    }
+    @Override
+    public String toString() {
+        return new ToStringCreator(this)
 
-    public void setPetId(Integer petId) {
-        this.petId = petId;
+                .append("id", this.getId())
+                .append("new", this.isNew())
+                .append("title", this.getTitle())
+                .append("description", this.getDescription())
+                .toString();
     }
-
 }
