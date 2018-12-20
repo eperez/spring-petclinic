@@ -15,6 +15,7 @@
  */
 package org.springframework.samples.petclinic.issue;
 
+import name.fraser.neil.plaintext.diff_match_patch;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -30,8 +31,10 @@ import org.springframework.web.servlet.ModelAndView;
 
 import javax.validation.Valid;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -45,6 +48,10 @@ class IssueController {
 
     private final IssueRepository issues;
     private final JdbcTemplate jdbcTemplate;
+    private final diff_match_patch diff_match_patch = new diff_match_patch();
+    {
+        diff_match_patch.Match_Threshold = 0.1f;
+    }
 
     public IssueController(IssueRepository clinicService, JdbcTemplate jdbcTemplate) {
         this.issues = clinicService;
@@ -92,59 +99,73 @@ class IssueController {
         if (result.hasErrors()) {
             return VIEWS_ISSUE_CREATE_OR_UPDATE_FORM;
         } else {
-            final Map<String,OldNewValue> values = new HashMap<>();
+            final Map<String,LinkedList<diff_match_patch.Patch>> values = new HashMap<>();
 
-            for (final Map.Entry<String,String> requestParam : allRequestParams.entrySet()) {
-                final String paramName = requestParam.getKey();
-                final String paramValue = requestParam.getValue();
-                if (!paramName.endsWith(".old")) {
-                    final String paramValueOld = allRequestParams.get(paramName+".old");
-                    if (!Objects.equals(paramValue, paramValueOld)) {
-                        values.put(paramName, new OldNewValue(paramValueOld,paramValue));
+            final Collection<String> fieldsEditAllowed = Arrays.asList("title","description");
+
+            for (final String paramName : fieldsEditAllowed) {
+                String paramValue = allRequestParams.get(paramName);
+                if (paramValue == null) paramValue = "";
+                paramValue = paramValue.replaceAll("\r","");
+                String paramValueOld = allRequestParams.get(paramName+".old");
+                if (paramValueOld == null) paramValueOld = "";
+                paramValueOld = paramValueOld.replaceAll("\r","");
+                if (!Objects.equals(paramValue, paramValueOld)) {
+                    final LinkedList<diff_match_patch.Patch> patches = diff_match_patch.patch_make(paramValueOld, paramValue);
+                    if (patches != null && !patches.isEmpty()) {
+                        values.put(paramName, patches);
                     }
                 }
             }
 
-            final StringBuilder sql = new StringBuilder();
-            final List<Object> sqlParams = new ArrayList<>();
+            if (values.size() > 0) {
+                final String commaSeparatedFields = getCommaSeparatedFields(values);
+                final String selectFieldsSql = "SELECT " +
+                    commaSeparatedFields +
+                    " FROM " + TABLE + " WHERE id = ?";
+                final Map<String,Object> currentIssue = jdbcTemplate.queryForMap(selectFieldsSql, issueId);
+                final Map<String,Object> currentIssueCaseInsensitive = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+                currentIssueCaseInsensitive.putAll(currentIssue);
 
-            if (values.size()>0) {
-                sql.append("UPDATE issues SET ");
+
+                final StringBuilder sql = new StringBuilder();
+                final List<Object> sqlParams = new ArrayList<>();
+
+                sql.append("UPDATE " + TABLE + " SET ");
                 boolean first = true;
-                for (final Map.Entry<String,OldNewValue> value : values.entrySet()) {
+                for (final Map.Entry<String,LinkedList<diff_match_patch.Patch>> value : values.entrySet()) {
                     if (first) first = false; else sql.append(",");
                     sql.append(value.getKey()+" = ?");
-                    sqlParams.add(value.getValue().getNewValue());
+                    final LinkedList<diff_match_patch.Patch> patches = value.getValue();
+                    final Object currentValue = currentIssueCaseInsensitive.get(value.getKey());
+                    final Object[] objects = diff_match_patch.patch_apply(patches, (String) currentValue);
+                    if (areAllTrue((boolean[])objects[1])) {
+                        final String patched = (String) objects[0];
+                        sqlParams.add(patched);
+                    } else {
+                        result.rejectValue(value.getKey(),"conflict", new Object[]{currentValue}, "Conflict");
+                    }
                 }
 
                 sql.append(" WHERE id = ?");
                 sqlParams.add(issueId);
-                for (final Map.Entry<String,OldNewValue> value : values.entrySet()) {
-                    sql.append(" AND (0=1");
-                    if (StringUtils.isEmpty(value.getValue().getOldValue())) {
-                        sql.append(" OR " + value.getKey() + " IS NULL OR " + value.getKey() + " = ''");
+                for (final Map.Entry<String,LinkedList<diff_match_patch.Patch>> value : values.entrySet()) {
+                    final Object currentValue = currentIssueCaseInsensitive.get(value.getKey());
+                    if (StringUtils.isEmpty(currentValue)) {
+                        sql.append(" AND (" + value.getKey() + " IS NULL OR " + value.getKey() + " = '')");
                     } else {
-                        sql.append(" OR " + value.getKey() + " = ?");
-                        sqlParams.add(value.getValue().getOldValue());
+                        sql.append(" AND " + value.getKey() + " = ?");
+                        sqlParams.add(currentValue);
                     }
-                    // it is OK if the field already has the new value (someone else changed it while this user was editing)
-                    if (StringUtils.isEmpty(value.getValue().getNewValue())) {
-                        sql.append(" OR " + value.getKey() + " IS NULL OR " + value.getKey() + " = ''");
-                    } else {
-                        sql.append(" OR " + value.getKey() + " = ?");
-                        sqlParams.add(value.getValue().getNewValue());
-                    }
-                    sql.append(")");
+                }
+
+                if (result.hasErrors()) {
+                    return VIEWS_ISSUE_CREATE_OR_UPDATE_FORM;
                 }
 
                 final int updatedRecords = jdbcTemplate.update(sql.toString(), sqlParams.toArray(new Object[sqlParams.size()]));
                 if (updatedRecords == 0) {
-                    final String commaSeparatedFields = getCommaSeparatedFields(values);
-                    final String selectFieldsSql = "SELECT " + commaSeparatedFields + " FROM " + TABLE + " WHERE id = ?";
-                    final Map<String,Object> currentIssue = jdbcTemplate.queryForMap(selectFieldsSql, issueId);
-                    final Map<String,Object> currentIssueCaseInsensitive = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-                    currentIssueCaseInsensitive.putAll(currentIssue);
-                    for (final Map.Entry<String,OldNewValue> valueEntry : values.entrySet()) {
+                    for (final Map.Entry<String,LinkedList<diff_match_patch.Patch>> valueEntry : values.entrySet()) {
                         final String valueKey = valueEntry.getKey();
                         final Object currentValue = currentIssueCaseInsensitive.get(valueKey);
                         result.rejectValue(valueKey,"conflict", new Object[]{currentValue}, "Conflict");
@@ -169,6 +190,11 @@ class IssueController {
             commaSeparatedFields.append(value.getKey());
         }
         return commaSeparatedFields.toString();
+    }
+
+    public static boolean areAllTrue(boolean[] array) {
+        for (boolean b : array) if (!b) return false;
+        return true;
     }
 
     /**

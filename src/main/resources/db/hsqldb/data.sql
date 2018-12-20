@@ -1,1 +1,1 @@
-INSERT INTO issues (id, title, description) VALUES (1, 'Something is broken', 'The something is broken because someone broke it');
+INSERT INTO issues (id, title, description) VALUES (1, 'Something is broken', '1'+CHAR(10)+'2'+CHAR(10)+'3'+CHAR(10)+'4'+CHAR(10)+'5'+CHAR(10)+'6'+CHAR(10)+'7'+CHAR(10)+'8'+CHAR(10)+'9'+CHAR(10)+'10'+CHAR(10)+'11'+CHAR(10)+'12'+CHAR(10)+'13'+CHAR(10)+'14'+CHAR(10)+'15'+CHAR(10)+'16'+CHAR(10)+'');
