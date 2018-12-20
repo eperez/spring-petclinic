@@ -6,9 +6,11 @@
   <h2>Issue</h2>
   <form th:object="${issue}" class="form-horizontal" id="add-issue-form" method="post">
     <div class="form-group has-feedback">
+      <input type="hidden" name="title.old" th:value="*{title}" />
       <input
         th:replace="~{fragments/inputField :: input ('Title', 'title', 'text')}" />
-      <textarea rows="20" cols="80" th:field="*{description}" />
+      <input type="hidden" name="description.old" th:value="*{description}" />
+      <textarea th:replace="~{fragments/inputField :: input ('Description', 'description', 'textarea')}" />
     </div>
     <div class="form-group">
       <div class="col-sm-offset-2 col-sm-10">
